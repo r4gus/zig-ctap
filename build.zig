@@ -31,6 +31,7 @@ pub fn build(b: *std.build.Builder) void {
     );
 
     exe.inner.setBuildMode(.ReleaseSmall);
+    exe.inner.strip = true;
     exe.inner.install();
 
     //const run_cmd = exe.run();
