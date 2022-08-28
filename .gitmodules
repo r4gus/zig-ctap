@@ -3,4 +3,4 @@
 	url = https://github.com/r4gus/zbor
 [submodule "libs/microzig"]
 	path = libs/microzig
-	url = https://github.com/ZigEmbeddedGroup/microzig
+	url = https://github.com/r4gus/microzig
