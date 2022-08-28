@@ -6,23 +6,9 @@ const user_switch_pin = micro.Pin("PA15");
 pub fn main() void {
     const status_led = micro.Gpio(status_led_pin, .{
         .mode = .output,
-        .initial_state = .high,
+        .initial_state = .low,
     });
     status_led.init();
-
-    var uart = micro.Uart(5, .{.tx = null, .rx = null}).init(.{
-        .baud_rate = 2400,
-        .stop_bits = .one,
-        .parity = null,
-        .data_bits = .eight,
-    }) catch |err| {
-        blinkError(status_led, err);
-        
-        micro.hang();
-    };
-    
-    var out = uart.writer();
-    _ = out;
 
     //const user_switch = micro.Gpio(user_switch_pin, .{.mode = .input});
     //user_switch.init();
@@ -30,8 +16,8 @@ pub fn main() void {
 
     while (true) {
         busyloop();
-        //uart.internal.tx('A');
         status_led.toggle();
+
         //if (micro.chip.gpio.read(user_switch_pin.source_pin) == .low) {
         //    status_led.write(.low);
         //
@@ -39,8 +25,6 @@ pub fn main() void {
         //} else {
         //    status_led.write(.high);
         //}
-
-
     }
 }
 
@@ -62,7 +46,7 @@ fn blinkError(led: anytype, err: micro.uart.InitError) void {
 }
 
 fn busyloop() void {
-    const limit = 5_000_000;
+    const limit = 15_000_000;
 
     var i: u32 = 0;
     while (i < limit) : (i += 1) {
