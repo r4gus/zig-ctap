@@ -1,10 +1,16 @@
+const std = @import("std");
 const micro = @import("microzig");
+const cbor = @import("zbor");
 
 const status_led_pin = micro.Pin("PA14");
 const user_switch_pin = micro.Pin("PA15");
 
-pub fn main() void {
+pub fn main() !void {
     micro.chip.nvmctrlInit();
+
+    var buffer: [1024]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&buffer);
+    const allocator = fba.allocator();
 
     const status_led = micro.Gpio(status_led_pin, .{
         .mode = .output,
@@ -13,8 +19,7 @@ pub fn main() void {
     status_led.init();
 
     var uart = micro.Uart(5, .{ .tx = null, .rx = null }).init(.{
-        //.baud_rate = 63019, // 65536 * ( 1 - 16 * (115200 / 48_000_000)), p. 830
-        .baud_rate = 65326, // 65536 * ( 1 - 16 * (115200 / 48_000_000)), p. 830
+        .baud_rate = 115200,
         .stop_bits = .one,
         .parity = null,
         .data_bits = .eight,
@@ -25,24 +30,38 @@ pub fn main() void {
     };
 
     var out = uart.writer();
-    _ = out;
 
-    //const user_switch = micro.Gpio(user_switch_pin, .{.mode = .input});
-    //user_switch.init();
     micro.chip.gpio.setInputPullUp(user_switch_pin.source_pin);
 
+    var counter: i64 = 0;
     while (true) {
         busyloop();
         status_led.toggle();
-        uart.internal.tx('X');
 
-        //if (micro.chip.gpio.read(user_switch_pin.source_pin) == .low) {
-        //    status_led.write(.low);
-        //
-        //    uart.internal.tx('A');
-        //} else {
-        //    status_led.write(.high);
-        //}
+        var di = try cbor.DataItem.map(allocator, &.{
+            cbor.Pair.new(try cbor.DataItem.text(allocator, "counter"), cbor.DataItem.int(counter)),
+        });
+        defer di.deinit(allocator);
+        //var di = cbor.DataItem.map(allocator, &.{
+        //    cbor.Pair.new(try cbor.DataItem.text(allocator, "msg"), try cbor.DataItem.text(allocator, "MicroZig + CBOR")),
+        //    cbor.Pair.new(try cbor.DataItem.text(allocator, "ctr"), cbor.DataItem.int(counter)), // 3:4
+        //}) catch {
+        //    try out.writeAll("Out of memory 1!\n\r");
+        //    continue :main_loop;
+        //};
+        //defer di.deinit(allocator);
+        //const enc = cbor.encodeAlloc(allocator, &di) catch {
+        //    try out.writeAll("Out of memory 2!\n\r");
+        //    continue :main_loop;
+        //};
+        //defer allocator.free(enc);
+        //try out.writeAll(enc);
+        //var di = try cbor.DataItem.text(allocator, "This is a test\n\r");
+        //defer di.deinit(allocator);
+
+        try cbor.encode(out, &di);
+
+        counter += 1;
     }
 }
 
@@ -64,7 +83,7 @@ fn blinkError(led: anytype, err: micro.uart.InitError) void {
 }
 
 fn busyloop() void {
-    const limit = 5_000_000;
+    const limit = 6_000_000;
 
     var i: u32 = 0;
     while (i < limit) : (i += 1) {
