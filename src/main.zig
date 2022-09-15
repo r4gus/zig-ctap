@@ -7,10 +7,8 @@ const user_switch_pin = micro.Pin("PA15");
 
 pub fn main() !void {
     micro.chip.nvmctrlInit();
-
-    var buffer: [1024]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&buffer);
-    const allocator = fba.allocator();
+    micro.chip.enableTrng();
+    micro.chip.crypto.public_key.init();
 
     const status_led = micro.Gpio(status_led_pin, .{
         .mode = .output,
@@ -33,35 +31,26 @@ pub fn main() !void {
 
     micro.chip.gpio.setInputPullUp(user_switch_pin.source_pin);
 
-    var counter: i64 = 0;
     while (true) {
+        // Fixed buffer allocator won't reuse freed memory
+        // so no point in keeping it around.
+        var buffer: [512]u8 = undefined;
+        var fba = std.heap.FixedBufferAllocator.init(&buffer);
+        const allocator = fba.allocator();
+
         busyloop();
         status_led.toggle();
 
+        const r: u32 = micro.chip.crypto.random.getWord();
+
         var di = try cbor.DataItem.map(allocator, &.{
-            cbor.Pair.new(try cbor.DataItem.text(allocator, "counter"), cbor.DataItem.int(counter)),
+            cbor.Pair.new(try cbor.DataItem.text(allocator, "random"), cbor.DataItem.int(r)),
         });
         defer di.deinit(allocator);
-        //var di = cbor.DataItem.map(allocator, &.{
-        //    cbor.Pair.new(try cbor.DataItem.text(allocator, "msg"), try cbor.DataItem.text(allocator, "MicroZig + CBOR")),
-        //    cbor.Pair.new(try cbor.DataItem.text(allocator, "ctr"), cbor.DataItem.int(counter)), // 3:4
-        //}) catch {
-        //    try out.writeAll("Out of memory 1!\n\r");
-        //    continue :main_loop;
-        //};
-        //defer di.deinit(allocator);
-        //const enc = cbor.encodeAlloc(allocator, &di) catch {
-        //    try out.writeAll("Out of memory 2!\n\r");
-        //    continue :main_loop;
-        //};
-        //defer allocator.free(enc);
-        //try out.writeAll(enc);
-        //var di = try cbor.DataItem.text(allocator, "This is a test\n\r");
-        //defer di.deinit(allocator);
 
-        try cbor.encode(out, &di);
-
-        counter += 1;
+        //try cbor.encode(out, &di);
+        try out.print("random: {d}", .{r});
+        try out.writeAll("\n\r");
     }
 }
 
