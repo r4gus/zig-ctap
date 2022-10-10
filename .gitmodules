@@ -4,3 +4,6 @@
 [submodule "libs/microzig"]
 	path = libs/microzig
 	url = git@github.com:r4gus/microzig.git
+[submodule "libs/tinyusb"]
+	path = libs/tinyusb
+	url = git@github.com:hathach/tinyusb.git
